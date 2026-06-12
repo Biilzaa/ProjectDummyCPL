@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 // Full CRUD API client for Module 1
 
 export async function getAPIUrl() {
-  return `http://20.5.25.251:3000/api/v1/m1`;
+  return `http://10.221.138.4:3000/api/v1/m1`;
 }
 
 async function fetchAPI(endpoint, options = {}) {
