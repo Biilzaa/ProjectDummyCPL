@@ -13,6 +13,7 @@ interface Kelas {
   kode_mk: string;
   nama_mk: string;
   sks: number;
+  semester_mk: number;
   nama_dosen: string | null;
   nama_prodi: string;
 }
@@ -35,7 +36,9 @@ interface Dosen {
 export default function MataKuliahPage() {
   const [items, setItems] = useState<Kelas[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [filterProdi, setFilterProdi] = useState('');
+  const [filterSemester, setFilterSemester] = useState('');
+  const [prodiList, setProdiList] = useState<Array<{id: string; nama_prodi: string}>>([]);
   const [showModal, setShowModal] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -61,7 +64,22 @@ export default function MataKuliahPage() {
   // Fetch data dari backend
   useEffect(() => {
     fetchKelas();
+    loadProdi();
   }, []);
+
+  const loadProdi = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/api/v1/m1/prodi', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      });
+      const data = await response.json();
+      setProdiList(data.data || []);
+    } catch (error) {
+      console.error('Error loading prodi:', error);
+    }
+  };
 
   const fetchKelas = async () => {
     try {
@@ -203,227 +221,229 @@ export default function MataKuliahPage() {
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  const filteredItems = items.filter(item =>
-    item.nama_mk.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.kode_mk.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.nama_prodi.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredItems = items.filter(item => {
+    // Get prodi_id from kelas through mata_kuliah
+    const matchProdi = !filterProdi || (item.nama_prodi && prodiList.find(p => p.id === filterProdi)?.nama_prodi === item.nama_prodi);
+    const matchSemester = !filterSemester || String(item.semester_aktif) === filterSemester;
+    
+    return matchProdi && matchSemester;
+  });
 
   return (
-    <>
+    <div className="sa-page">
       {/* Header */}
-      <div className="page-header animate-fade-in">
-        <h1 className="page-title">Mata Kuliah & Pemetaan</h1>
-        <p className="page-subtitle">Kelola mata kuliah dan pemetaan CPL</p>
+      <div className="sa-page-header">
+        <h1 className="sa-page-title">Mata Kuliah & Kelas</h1>
+        <p className="sa-page-subtitle">Kelola mata kuliah dan kelas perkuliahan</p>
       </div>
 
       {/* Toolbar */}
-      <div className="animate-fade-in stagger-1" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ position: 'relative', flex: '1', maxWidth: '400px' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}>
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          </svg>
-          <input type="text" placeholder="Cari mata kuliah..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="input-field" style={{ paddingLeft: '38px' }} />
+      <div className="sa-toolbar">
+        <div className="sa-toolbar-left">
+          <select
+            value={filterProdi}
+            onChange={(e) => setFilterProdi(e.target.value)}
+            className="sa-form-control"
+            style={{ minWidth: '200px' }}
+          >
+            <option value="">Semua Prodi</option>
+            {prodiList.map((prodi) => (
+              <option key={prodi.id} value={prodi.id}>
+                {prodi.nama_prodi}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filterSemester}
+            onChange={(e) => setFilterSemester(e.target.value)}
+            className="sa-form-control"
+            style={{ minWidth: '150px' }}
+          >
+            <option value="">Semua Semester</option>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+              <option key={sem} value={sem}>Semester {sem}</option>
+            ))}
+          </select>
         </div>
-        <button className="btn btn-primary" onClick={() => {
-          setShowModal(true);
-          fetchDropdownData();
-        }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          Tambah Mata Kuliah
-        </button>
+        
+        <div className="sa-toolbar-right">
+          <button className="sa-btn sa-btn-primary" onClick={() => {
+            setShowModal(true);
+            fetchDropdownData();
+          }}>
+            <span>➕</span>
+            <span>Tambah Kelas</span>
+          </button>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="card animate-fade-in stagger-2" style={{ padding: 0, overflow: 'hidden' }}>
+      {/* Table - Compact Card Layout */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {loading ? (
-          <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-            <div className="skeleton" style={{ width: '100%', height: '40px', marginBottom: '12px' }}></div>
-            <div className="skeleton" style={{ width: '100%', height: '40px', marginBottom: '12px' }}></div>
-            <div className="skeleton" style={{ width: '100%', height: '40px' }}></div>
+          <div className="sa-empty">
+            <p>⏳ Memuat data...</p>
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-            </svg>
-            <p style={{ fontWeight: '600', fontSize: '16px' }}>Tidak ada mata kuliah ditemukan</p>
-            <p>Coba ubah kata kunci pencarian</p>
+          <div className="sa-empty">
+            <p className="sa-empty-title">📚 Tidak ada kelas ditemukan</p>
+            <p className="sa-empty-subtitle">Coba ubah filter pencarian</p>
           </div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>No</th>
-                <th>Kode MK</th>
-                <th>Nama Mata Kuliah</th>
-                <th>SKS</th>
-                <th>Tahun Akademik</th>
-                <th>Semester</th>
-                <th>Dosen</th>
-                <th>Program Studi</th>
-                <th>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.map((item, index) => (
-                <tr key={item.id}>
-                  <td>{index + 1}</td>
-                  <td><span className="badge badge-dark">{item.kode_mk}</span></td>
-                  <td style={{ fontWeight: '600' }}>{item.nama_mk}</td>
-                  <td><span className="badge badge-blue">{item.sks} SKS</span></td>
-                  <td style={{ fontSize: '13px' }}>{item.tahun_akademik}</td>
-                  <td><span className="badge badge-yellow">Semester {item.semester_aktif}</span></td>
-                  <td style={{ fontSize: '13px' }}>{item.nama_dosen || '-'}</td>
-                  <td style={{ fontSize: '13px' }}>{item.nama_prodi}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button 
-                        onClick={() => handleEdit(item)}
-                        className="btn btn-secondary btn-sm"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
-                        Edit
-                      </button>
-                      <button 
-                        className="btn btn-sm" 
-                        style={{ backgroundColor: '#fdecea', color: '#e74c3c' }}
-                        onClick={() => handleDelete(item.id, item.nama_mk)}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                        </svg>
-                        Hapus
-                      </button>
+          filteredItems.map((item, index) => (
+            <div key={item.id} className="sa-card" style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
+                {/* Left Section - Main Info */}
+                <div style={{ flex: '1', minWidth: '250px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <span className="sa-badge sa-badge-primary">{item.kode_mk}</span>
+                    <span className="sa-badge sa-badge-accent">{item.sks} SKS</span>
+                    <span className="sa-badge sa-badge-secondary">Sem {item.semester_mk || item.semester_aktif}</span>
+                  </div>
+                  <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px' }}>
+                    {item.nama_mk}
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', opacity: 0.8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>👨‍🏫</span>
+                      <span>{item.nama_dosen || 'Belum ada dosen'}</span>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>📅</span>
+                      <span>{item.tahun_akademik}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🏛️</span>
+                      <span>{item.nama_prodi}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Section - Actions */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                  <button 
+                    onClick={() => handleEdit(item)}
+                    className="sa-btn sa-btn-secondary sa-btn-sm"
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    <span>✏️</span>
+                    <span>Edit</span>
+                  </button>
+                  <button 
+                    className="sa-btn sa-btn-danger sa-btn-sm" 
+                    style={{ whiteSpace: 'nowrap' }}
+                    onClick={() => handleDelete(item.id, item.nama_mk)}
+                  >
+                    <span>🗑️</span>
+                    <span>Hapus</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
         )}
       </div>
 
       {/* Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={handleModalClose}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '20px' }}>
-              {editMode ? 'Edit Mata Kuliah' : 'Tambah Mata Kuliah'}
-            </h2>
+        <div className="sa-modal-overlay" onClick={handleModalClose}>
+          <div className="sa-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="sa-modal-header">
+              <h2 className="sa-modal-title">{editMode ? 'Edit Kelas' : 'Tambah Kelas'}</h2>
+            </div>
             
             {dropdownLoading ? (
-              <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                <div className="skeleton" style={{ width: '100%', height: '40px', marginBottom: '12px' }}></div>
-                <div className="skeleton" style={{ width: '100%', height: '40px', marginBottom: '12px' }}></div>
-                <div className="skeleton" style={{ width: '100%', height: '40px' }}></div>
+              <div className="sa-empty">
+                <p>⏳ Memuat data...</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit}>
-                {/* Mata Kuliah Dropdown */}
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>
-                    Mata Kuliah <span style={{ color: '#e74c3c' }}>*</span>
-                  </label>
-                  <select
-                    value={formData.mk_id}
-                    onChange={(e) => setFormData({ ...formData, mk_id: e.target.value })}
-                    className="input-field"
-                    required
-                    disabled={editMode}
-                  >
-                    <option value="">Pilih Mata Kuliah</option>
-                    {mataKuliahList.map((mk) => (
-                      <option key={mk.id} value={mk.id}>
-                        {mk.kode_mk} - {mk.nama_mk} ({mk.sks} SKS)
-                      </option>
-                    ))}
-                  </select>
+                <div className="sa-modal-body">
+                  <div className="sa-form-group">
+                    <label className="sa-form-label">Mata Kuliah <span style={{ color: '#e74c3c' }}>*</span></label>
+                    <select
+                      value={formData.mk_id}
+                      onChange={(e) => setFormData({ ...formData, mk_id: e.target.value })}
+                      className="sa-form-control"
+                      required
+                      disabled={editMode}
+                    >
+                      <option value="">Pilih Mata Kuliah</option>
+                      {mataKuliahList.map((mk) => (
+                        <option key={mk.id} value={mk.id}>
+                          {mk.kode_mk} - {mk.nama_mk} ({mk.sks} SKS)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="sa-form-group">
+                    <label className="sa-form-label">Dosen Pengampu</label>
+                    <select
+                      value={formData.dosen_id}
+                      onChange={(e) => setFormData({ ...formData, dosen_id: e.target.value })}
+                      className="sa-form-control"
+                    >
+                      <option value="">Pilih Dosen (Opsional)</option>
+                      {dosenList.map((dosen) => (
+                        <option key={dosen.id} value={dosen.id}>
+                          {dosen.nama} - {dosen.nidn}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="sa-form-group">
+                    <label className="sa-form-label">Tahun Akademik <span style={{ color: '#e74c3c' }}>*</span></label>
+                    <input
+                      type="text"
+                      value={formData.tahun_akademik}
+                      onChange={(e) => setFormData({ ...formData, tahun_akademik: e.target.value })}
+                      placeholder="Contoh: 2024/2025"
+                      className="sa-form-control"
+                      required
+                    />
+                  </div>
+
+                  <div className="sa-form-group">
+                    <label className="sa-form-label">Semester Aktif <span style={{ color: '#e74c3c' }}>*</span></label>
+                    <select
+                      value={formData.semester_aktif}
+                      onChange={(e) => setFormData({ ...formData, semester_aktif: e.target.value })}
+                      className="sa-form-control"
+                      required
+                    >
+                      <option value="">Pilih Semester</option>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                        <option key={sem} value={sem}>Semester {sem}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="sa-form-group">
+                    <label className="sa-form-label">Nama Kelas</label>
+                    <input
+                      type="text"
+                      value={formData.nama_kelas}
+                      onChange={(e) => setFormData({ ...formData, nama_kelas: e.target.value })}
+                      placeholder="Contoh: Kelas A (Opsional)"
+                      className="sa-form-control"
+                    />
+                  </div>
                 </div>
 
-                {/* Dosen Dropdown (Optional) */}
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>
-                    Dosen Pengampu
-                  </label>
-                  <select
-                    value={formData.dosen_id}
-                    onChange={(e) => setFormData({ ...formData, dosen_id: e.target.value })}
-                    className="input-field"
-                  >
-                    <option value="">Pilih Dosen (Opsional)</option>
-                    {dosenList.map((dosen) => (
-                      <option key={dosen.id} value={dosen.id}>
-                        {dosen.nama} - {dosen.nidn}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Tahun Akademik */}
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>
-                    Tahun Akademik <span style={{ color: '#e74c3c' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.tahun_akademik}
-                    onChange={(e) => setFormData({ ...formData, tahun_akademik: e.target.value })}
-                    placeholder="Contoh: 2024/2025"
-                    className="input-field"
-                    required
-                  />
-                </div>
-
-                {/* Semester Aktif */}
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>
-                    Semester Aktif <span style={{ color: '#e74c3c' }}>*</span>
-                  </label>
-                  <select
-                    value={formData.semester_aktif}
-                    onChange={(e) => setFormData({ ...formData, semester_aktif: e.target.value })}
-                    className="input-field"
-                    required
-                  >
-                    <option value="">Pilih Semester</option>
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
-                      <option key={sem} value={sem}>Semester {sem}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Nama Kelas (Optional) */}
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>
-                    Nama Kelas
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.nama_kelas}
-                    onChange={(e) => setFormData({ ...formData, nama_kelas: e.target.value })}
-                    placeholder="Contoh: Kelas A (Opsional)"
-                    className="input-field"
-                  />
-                </div>
-
-                {/* Buttons */}
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <div className="sa-modal-footer">
                   <button 
                     type="button" 
                     onClick={handleModalClose} 
-                    className="btn btn-ghost"
+                    className="sa-btn sa-btn-ghost"
                     disabled={formLoading}
                   >
                     Batal
                   </button>
                   <button 
                     type="submit" 
-                    className="btn btn-primary"
+                    className="sa-btn sa-btn-primary"
                     disabled={formLoading}
                   >
                     {formLoading ? 'Menyimpan...' : 'Simpan'}
@@ -441,6 +461,6 @@ export default function MataKuliahPage() {
           {toastMessage}
         </div>
       )}
-    </>
+    </div>
   );
 }

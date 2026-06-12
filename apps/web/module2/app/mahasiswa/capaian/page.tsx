@@ -1,36 +1,34 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import { mahasiswaApi } from '@/lib/api';
 
 interface CapaianCPL {
-  id: number;
-  kode_cpl?: string;
-  nama_cpl?: string;
-  nilai?: number;
-  persentase?: number;
-  status?: string;
-  target?: number;
-  [key: string]: unknown;
+  cpl_id: string;
+  kode_cpl: string;
+  deskripsi_cpl: string;
+  rata_rata_nilai: number;
+  nilai_minimum?: number;
+  status_capaian?: string;
 }
 
 interface CapaianDetail {
-  mk_id?: number;
-  kode_mk?: string;
-  nama_mk?: string;
-  nilai?: number;
-  semester?: string;
-  [key: string]: unknown;
+  kode_mk: string;
+  nama_mk: string;
+  tahun_akademik: string;
+  semester_aktif: number;
+  kode_cpl: string;
+  deskripsi_cpl: string;
+  nilai: number;
+  nilai_minimum?: number;
+  status?: string;
 }
 
 export default function CapaianPage() {
-  const { user } = useAuth();
   const [capaianList, setCapaianList] = useState<CapaianCPL[]>([]);
   const [capaianDetail, setCapaianDetail] = useState<CapaianDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [showDetail, setShowDetail] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,6 +38,7 @@ export default function CapaianPage() {
         setCapaianList(data);
       } catch (error) {
         console.error('Error fetching capaian:', error);
+        setCapaianList([]);
       } finally {
         setIsLoading(false);
       }
@@ -47,227 +46,195 @@ export default function CapaianPage() {
     fetchData();
   }, []);
 
-  const handleShowDetail = async () => {
-    setDetailLoading(true);
-    try {
-      const res = await mahasiswaApi.getMyCapaianDetail();
-      const data = Array.isArray(res) ? res : res.data || [];
-      setCapaianDetail(data);
-      setShowDetail(true);
-    } catch (error) {
-      console.error('Error fetching detail:', error);
-    } finally {
-      setDetailLoading(false);
-    }
-  };
+  useEffect(() => {
+    const fetchDetail = async () => {
+      try {
+        const res = await mahasiswaApi.getMyCapaianDetail();
+        const data = Array.isArray(res) ? res : res.data || [];
+        setCapaianDetail(data);
+      } catch (error) {
+        console.error('Error fetching detail:', error);
+        setCapaianDetail([]);
+      } finally {
+        setDetailLoading(false);
+      }
+    };
+    fetchDetail();
+  }, []);
 
   const getStatusColor = (status?: string) => {
     switch (status?.toLowerCase()) {
       case 'tercapai':
-        return { bg: '#CFECCA', text: '#166534' };
+      case 'sangat baik':
+        return { bg: '#D1FAE5', text: '#10B981' };
       case 'belum tercapai':
-        return { bg: '#FEE2E2', text: '#991B1B' };
+      case 'kurang':
+        return { bg: '#FEE2E2', text: '#EF4444' };
+      case 'baik':
+        return { bg: '#DBEAFE', text: '#3B82F6' };
+      case 'cukup':
+        return { bg: '#FEF3C7', text: '#F59E0B' };
       default:
-        return { bg: '#FFF063', text: '#854D0E' };
+        return { bg: '#F3F4F6', text: '#6B7280' };
     }
   };
 
-  const getProgressColor = (persentase?: number) => {
-    if (!persentase) return '#E5E7EB';
-    if (persentase >= 80) return '#10B981';
-    if (persentase >= 60) return '#FFF063';
+  const getProgressColor = (nilai?: number) => {
+    if (!nilai) return '#E5E7EB';
+    if (nilai >= 80) return '#10B981';
+    if (nilai >= 60) return '#F59E0B';
     return '#EF4444';
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header Card */}
-      <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div>
-            <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#111827' }}>Capaian CPL Saya</h2>
-            <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>
-              Data capaian pembelajaran untuk {user?.name || 'Mahasiswa'}
-            </p>
-          </div>
-          <button
-            onClick={handleShowDetail}
-            disabled={detailLoading}
-            style={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              padding: '10px 16px', 
-              borderRadius: '8px', 
-              fontSize: '13px', 
-              fontWeight: '500', 
-              background: '#E8F3FF', 
-              color: '#1E40AF',
-              border: 'none',
-              cursor: detailLoading ? 'not-allowed' : 'pointer',
-              opacity: detailLoading ? 0.5 : 1
-            }}
-          >
-            {detailLoading ? (
-              <>
-                <div style={{ width: '12px', height: '12px', border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', marginRight: '8px' }}></div>
-                Memuat...
-              </>
-            ) : (
-              <>
-                <svg style={{ width: '16px', height: '16px', marginRight: '8px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Lihat Detail
-              </>
-            )}
-          </button>
-        </div>
+      {/* Page Header */}
+      <div className="page-header animate-fade-in">
+        <h1 className="page-title">Capaian CPL Saya</h1>
+        <p className="page-subtitle">Data capaian pembelajaran lulusan berdasarkan nilai yang telah diinput</p>
       </div>
 
       {/* Capaian CPL Cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {isLoading ? (
-          <div style={{ background: '#fff', borderRadius: '12px', padding: '48px 24px', textAlign: 'center', color: '#9CA3AF', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              <div style={{ width: '20px', height: '20px', border: '2px solid #9CA3AF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-              <span>Memuat data capaian...</span>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {[1, 2, 3].map(i => (
+              <div key={i} className="skeleton" style={{ height: '120px', borderRadius: 'var(--radius-xl)' }} />
+            ))}
           </div>
         ) : capaianList.length === 0 ? (
-          <div style={{ background: '#fff', borderRadius: '12px', padding: '48px 24px', textAlign: 'center', color: '#9CA3AF', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            Belum ada data capaian CPL
+          <div className="card animate-fade-in" style={{ padding: '60px 24px', textAlign: 'center' }}>
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto 16px', opacity: 0.25 }}>
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+            <p style={{ fontWeight: '700', fontSize: '16px', color: 'var(--eerie-black)', marginBottom: '6px' }}>Belum ada data capaian CPL</p>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Data akan muncul setelah nilai diinput oleh dosen</p>
           </div>
         ) : (
           capaianList.map((capaian, idx) => {
-            const statusColor = getStatusColor(capaian.status);
-            const progressColor = getProgressColor(capaian.persentase);
-            const persentase = capaian.persentase || 0;
-            
+            const statusColor = getStatusColor(capaian.status_capaian);
+            const nilai = Number(capaian.rata_rata_nilai) || 0;
+            const progressColor = getProgressColor(nilai);
+            const target = Number(capaian.nilai_minimum) || 75;
+
             return (
-              <div key={`capaian-${capaian.id}-${idx}`} style={{ background: '#fff', borderRadius: '12px', padding: '24px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div key={`capaian-${capaian.cpl_id}-${idx}`} className="card animate-fade-in" style={{ animationDelay: `${idx * 0.05}s` }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', gap: '16px' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', background: '#1F2937', color: '#fff' }}>
-                        {capaian.kode_cpl || '-'}
-                      </span>
-                      {capaian.status && (
-                        <span 
-                          style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', background: statusColor.bg, color: statusColor.text }}
-                        >
-                          {capaian.status}
+                      <span className="badge badge-dark">{capaian.kode_cpl || '-'}</span>
+                      {capaian.status_capaian && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: statusColor.bg, color: statusColor.text }}>
+                          {capaian.status_capaian}
                         </span>
                       )}
                     </div>
-                    <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#111827', lineHeight: '1.5' }}>
-                      {capaian.nama_cpl || '-'}
+                    <h3 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--eerie-black)', lineHeight: '1.5' }}>
+                      {capaian.deskripsi_cpl || '-'}
                     </h3>
                   </div>
-                  <div style={{ textAlign: 'right', marginLeft: '16px' }}>
-                    <p style={{ fontSize: '32px', fontWeight: '700', color: '#111827', lineHeight: '1' }}>{persentase.toFixed(1)}%</p>
-                    {capaian.target && (
-                      <p style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px' }}>Target: {capaian.target}%</p>
-                    )}
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <p style={{ fontSize: '32px', fontWeight: '700', color: 'var(--eerie-black)', lineHeight: 1 }}>{nilai.toFixed(1)}%</p>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>Target: {target}%</p>
                   </div>
                 </div>
-                
+
                 {/* Progress Bar */}
                 <div style={{ position: 'relative', marginBottom: '8px' }}>
-                  <div style={{ width: '100%', height: '12px', background: '#F3F4F6', borderRadius: '999px', overflow: 'hidden' }}>
-                    <div 
-                      style={{ 
-                        height: '100%',
-                        borderRadius: '999px',
-                        transition: 'width 0.5s ease',
-                        width: `${Math.min(persentase, 100)}%`,
-                        backgroundColor: progressColor
-                      }}
-                    />
+                  <div style={{ width: '100%', height: '10px', background: '#F3F4F6', borderRadius: '999px', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      borderRadius: '999px',
+                      transition: 'width 0.5s ease',
+                      width: `${Math.min(nilai, 100)}%`,
+                      backgroundColor: progressColor,
+                    }} />
                   </div>
-                  {capaian.target && (
-                    <div 
-                      style={{ 
-                        position: 'absolute',
-                        top: 0,
-                        bottom: 0,
-                        width: '2px',
-                        background: '#6B7280',
-                        left: `${Math.min(capaian.target, 100)}%`
-                      }}
-                      title={`Target: ${capaian.target}%`}
-                    />
-                  )}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    bottom: 0,
+                    width: '2px',
+                    background: '#9CA3AF',
+                    left: `${Math.min(target, 100)}%`,
+                  }} title={`Target: ${target}%`} />
                 </div>
-                
-                {capaian.nilai !== undefined && (
-                  <p style={{ fontSize: '13px', color: '#6B7280' }}>
-                    Nilai: <span style={{ fontWeight: '600', color: '#111827' }}>{capaian.nilai.toFixed(2)}</span>
-                  </p>
-                )}
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  Nilai: <span style={{ fontWeight: '600', color: 'var(--eerie-black)' }}>{nilai.toFixed(2)}</span>
+                </p>
               </div>
             );
           })
         )}
       </div>
 
-      {/* Detail Modal/Section */}
-      {showDetail && (
-        <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-            <div>
-              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#111827' }}>Detail Capaian per Mata Kuliah</h3>
-              <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Rincian nilai dari setiap mata kuliah</p>
+      {/* Detail per Mata Kuliah */}
+      <div className="animate-fade-in">
+        <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--eerie-black)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className="badge badge-yellow">Detail</span>
+          Capaian per Mata Kuliah
+        </h2>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {detailLoading ? (
+            <div style={{ padding: '40px', textAlign: 'center' }}>
+              <div className="skeleton" style={{ width: '200px', height: '20px', margin: '0 auto 12px' }} />
+              <div className="skeleton" style={{ width: '300px', height: '16px', margin: '0 auto' }} />
             </div>
-            <button
-              onClick={() => setShowDetail(false)}
-              style={{ color: '#9CA3AF', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
-            >
-              <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          ) : capaianDetail.length === 0 ? (
+            <div className="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
               </svg>
-            </button>
-          </div>
-
-          {capaianDetail.length === 0 ? (
-            <div style={{ padding: '32px 24px', textAlign: 'center', color: '#9CA3AF' }}>
-              Tidak ada detail capaian
+              <p style={{ fontWeight: '600', fontSize: '16px' }}>Tidak ada detail capaian</p>
+              <p>Data akan muncul setelah nilai diinput oleh dosen</p>
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
-                    <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '11px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>KODE MK</th>
-                    <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '11px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>MATA KULIAH</th>
-                    <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '11px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SEMESTER</th>
-                    <th style={{ textAlign: 'right', padding: '16px 24px', fontSize: '11px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>NILAI</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {capaianDetail.map((detail, idx) => (
-                    <tr key={`detail-${detail.mk_id || idx}-${idx}`} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                      <td style={{ padding: '16px 24px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: '#1F2937', color: '#fff' }}>
-                          {detail.kode_mk || '-'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '16px 24px', fontSize: '14px', color: '#111827' }}>{detail.nama_mk || '-'}</td>
-                      <td style={{ padding: '16px 24px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: '#E8F3FF', color: '#1E40AF' }}>
-                          {detail.semester || '-'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '16px 24px', textAlign: 'right', fontSize: '14px', fontWeight: '600', color: '#111827' }}>
-                        {detail.nilai !== undefined ? detail.nilai.toFixed(2) : '-'}
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>Kode MK</th>
+                  <th>Mata Kuliah</th>
+                  <th>CPL</th>
+                  <th>Semester</th>
+                  <th style={{ textAlign: 'right' }}>Nilai</th>
+                  <th style={{ textAlign: 'center' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {capaianDetail.map((detail, idx) => {
+                  const statusColor = getStatusColor(detail.status);
+                  const semester = `${detail.semester_aktif % 2 === 1 ? 'Ganjil' : 'Genap'} ${detail.tahun_akademik}`;
+                  const nilai = Number(detail.nilai) || 0;
+                  return (
+                    <tr key={`detail-${detail.kode_mk}-${detail.kode_cpl}-${idx}`}>
+                      <td>{idx + 1}</td>
+                      <td><span className="badge badge-dark">{detail.kode_mk || '-'}</span></td>
+                      <td style={{ fontWeight: '600' }}>{detail.nama_mk || '-'}</td>
+                      <td><span className="badge badge-blue">{detail.kode_cpl || '-'}</span></td>
+                      <td><span className="badge badge-yellow">{semester}</span></td>
+                      <td style={{ textAlign: 'right', fontWeight: '700', fontSize: '15px' }}>{nilai.toFixed(2)}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        {detail.status ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: statusColor.bg, color: statusColor.text }}>
+                            {detail.status}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>—</span>
+                        )}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

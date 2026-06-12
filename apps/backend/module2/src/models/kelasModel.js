@@ -19,6 +19,8 @@ const getAllKelas = async () => {
       mk.kode_mk,
       mk.nama_mk,
       mk.sks,
+      mk.semester as semester_mk,
+      mk.prodi_id,
       d.nama as nama_dosen,
       ps.nama_prodi
     FROM kelas
@@ -45,6 +47,7 @@ const getKelasById = async (id) => {
       mk.kode_mk,
       mk.nama_mk,
       mk.sks,
+      mk.prodi_id,
       d.nama as nama_dosen,
       d.nidn,
       ps.nama_prodi
@@ -71,16 +74,47 @@ const getKelasByDosenId = async (dosenId) => {
       mk.kode_mk,
       mk.nama_mk,
       mk.sks,
+      mk.prodi_id,
       COUNT(e.id) as jumlah_mahasiswa
     FROM kelas
     JOIN mata_kuliah mk ON kelas.mk_id = mk.id
     LEFT JOIN enrollment e ON kelas.id = e.kelas_id
     WHERE kelas.dosen_id = $1
-    GROUP BY kelas.id, kelas.mk_id, mk.kode_mk, mk.nama_mk, mk.sks
+    GROUP BY kelas.id, kelas.mk_id, mk.kode_mk, mk.nama_mk, mk.sks, mk.prodi_id
     ORDER BY kelas.tahun_akademik DESC, kelas.semester_aktif DESC
   `;
 
   const result = await pool.query(query, [dosenId]);
+  return result.rows;
+};
+
+// Ambil kelas berdasarkan mahasiswa (kelas yang diikuti mahasiswa)
+const getKelasByMahasiswaId = async (mahasiswaId) => {
+  const query = `
+    SELECT 
+      kelas.id,
+      kelas.mk_id,
+      kelas.tahun_akademik,
+      kelas.semester_aktif,
+      kelas.nama_kelas,
+      mk.kode_mk,
+      mk.nama_mk,
+      mk.sks,
+      mk.prodi_id,
+      d.nama as nama_dosen,
+      d.nidn,
+      ps.nama_prodi,
+      e.id as enrollment_id
+    FROM enrollment e
+    JOIN kelas ON e.kelas_id = kelas.id
+    JOIN mata_kuliah mk ON kelas.mk_id = mk.id
+    LEFT JOIN dosen d ON kelas.dosen_id = d.id
+    JOIN program_studi ps ON mk.prodi_id = ps.id
+    WHERE e.mahasiswa_id = $1
+    ORDER BY kelas.tahun_akademik DESC, kelas.semester_aktif DESC
+  `;
+
+  const result = await pool.query(query, [mahasiswaId]);
   return result.rows;
 };
 
@@ -133,6 +167,7 @@ module.exports = {
   getAllKelas,
   getKelasById,
   getKelasByDosenId,
+  getKelasByMahasiswaId,
   createKelas,
   updateKelas,
   deleteKelas,

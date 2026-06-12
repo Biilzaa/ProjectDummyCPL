@@ -10,7 +10,18 @@ export interface LoginCredentials {
 
 export interface LoginResponse {
   message: string;
-  token: string;
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  user: {
+    id: string;
+    email: string;
+    role: string;
+    entity_type: string;
+    entity_id: string;
+    prodi_id?: string;
+    nama: string;
+  };
 }
 
 export interface ApiError {
@@ -53,6 +64,32 @@ export const authApi = {
     }
     return data;
   },
+  
+  refreshToken: async (refreshToken: string): Promise<{ access_token: string; expires_in: number }> => {
+    const response = await fetch(`${API_BASE}/auth/refresh-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Refresh token gagal');
+    }
+    return data;
+  },
+
+  logout: async (refreshToken: string): Promise<void> => {
+    const response = await fetch(`${API_BASE}/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Logout gagal');
+    }
+  },
+
   register: async (body: { email: string; password: string; role_id: number }) => {
     const response = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
@@ -165,7 +202,7 @@ export const userApi = {
   getAll: () => apiFetch('/users'),
   getById: (id: string) => apiFetch(`/users/${id}`),
   getByEmail: (email: string) => apiFetch(`/users/email/${email}`),
-  create: (body: { email: string; password: string; role: string }) =>
+  create: (body: { email: string; password: string; role: string; prodi_id?: string; nama?: string; identifier?: string }) =>
     apiFetch('/users', { method: 'POST', body: JSON.stringify(body) }),
   update: (id: string, body: { email: string; role: string }) =>
     apiFetch(`/users/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
@@ -192,6 +229,20 @@ export const mataKuliahApi = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Gagal memuat mata kuliah');
+    return data;
+  },
+  create: async (body: { kode_mk: string; nama_mk: string; sks: number; prodi_id: string; semester?: number }) => {
+    const token = authStorage.getToken();
+    const res = await fetch(`${API_URL}/api/v1/m1/kurikulum/mk`, {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Gagal menambah mata kuliah');
     return data;
   },
 };
@@ -228,6 +279,7 @@ export const mahasiswaApi = {
 
   // Mata Kuliah / Kelas (Read only)
   getAllKelas: () => apiFetch('/kelas'),
+  getMyKelas: () => apiFetch('/kelas/mahasiswa/my-classes'),
   getKelasById: (id: number) => apiFetch(`/kelas/${id}`),
 
   // Sub-CPMK (Read only)
